@@ -623,6 +623,7 @@
                 $response->send();
                 exit;
             }catch(PDOException $ex){
+                // Send error message to the server log if error connecting to the database
                 $err = error_log("Database query error - ".$ex,0);
                 $response = new Response();
                 $response->setHttpStatusCode(500);
