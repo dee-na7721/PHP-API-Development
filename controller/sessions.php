@@ -18,6 +18,7 @@ try{
 }
 
 // /sessions.php?sessionid=3
+//LOG OUT and REFRESH TOKEN
 if(array_key_exists("sessionid", $_GET)){
 
     $sessionID = $_GET['sessionid'];
@@ -128,12 +129,14 @@ if(array_key_exists("sessionid", $_GET)){
         try{
 
             $refreshtoken = $jsonData->refresh_token;
-
-            $query = $writeDB->prepare('select tblsessions.id as sessionid, tblsessions.userid, accesstoken, refreshtoken, useractive, loginattempts, accesstokenexpiry, refreshtokenexpiry from tblsessions, tblusers where tblusers.id = tblsessions.userid and tblsessions.id = :sessionid and tblsessions.accesstoken = :accesstoken and tblsessions.refreshtoken= :refreshtoken');
-            $query->bindParam(':sessionid', $sessionid, PDO::PARAM_INT);
+            //retrieving original data
+            $query = $writeDB->prepare('select tblsessions.id as sessionid, tblsessions.userid as userid, accesstoken, refreshtoken, useractive, loginattempts, accesstokenexpiry, refreshtokenexpiry from tblsessions, tblusers where tblusers.id = tblsessions.userid and tblsessions.id = :sessionid and tblsessions.accesstoken = :accesstoken and tblsessions.refreshtoken= :refreshtoken');
+            $query->bindParam(':sessionid', $sessionID, PDO::PARAM_INT);
             $query->bindParam(':accesstoken', $accesstoken, PDO::PARAM_STR);
             $query->bindParam(':refreshtoken', $refreshtoken, PDO::PARAM_STR);
             $query->execute();
+
+            //ensure that db query has been executed properly and given result
             $rowCount = $query->rowCount();
 
             if($rowCount === 0 ){
@@ -145,8 +148,9 @@ if(array_key_exists("sessionid", $_GET)){
                 exit;
             }
 
+            //fetching result
             $row =$query->fetch(PDO::FETCH_ASSOC);
-
+            //original data
             $returned_sessionid = $row['sessionid'];
             $returned_userid = $row['userid'];
             $returned_accesstoken = $row['accesstoken'];
@@ -173,6 +177,9 @@ if(array_key_exists("sessionid", $_GET)){
                 $response-> send();
                 exit;
             }
+
+            //strtotime(string) -> converts string to time
+            //checking if refresh token has expired by comparing to current time
             if(strtotime($returned_refreshtokenexpiry)<time()){
                 $response = new Response();
                 $response->setHttpStatusCode(401);
@@ -182,16 +189,18 @@ if(array_key_exists("sessionid", $_GET)){
                 exit;
             }
 
-
+            //Regenerating tokens // everytime accesstoken is generated refresh token is generated too
             $accesstoken = base64_encode(bin2hex(openssl_random_pseudo_bytes(24)).time());
             $refreshtoken = base64_encode(bin2hex(openssl_random_pseudo_bytes(24)).time());
             
             $access_token_expiry_seconds = 1200;
             $refresh_token_expiry_seconds = 1209600;
 
+
+            //updating tokens of same sessionid
             $query = $writeDB->prepare('update tblsessions set accesstoken = :accesstoken, accesstokenexpiry= date_add(NOW(), INTERVAL :accesstokenexpiryseconds SECOND), refreshtoken= :refreshtoken, refreshtokenexpiry= date_add(NOW(), INTERVAL :refreshtokenexpiryseconds SECOND) where id = :sessionid and userid = :userid and accesstoken= :returnedaccesstoken and refreshtoken = :returnedrefreshtoken');
-            $query->bindParam(':userid', $returned_id, PDO::PARAM_INT);
-            $query->bindParam(':sessionid', $sessionid, PDO::PARAM_INT);
+            $query->bindParam(':userid', $returned_userid, PDO::PARAM_INT);
+            $query->bindParam(':sessionid', $returned_sessionid, PDO::PARAM_INT);
             $query->bindParam(':accesstoken', $accesstoken, PDO::PARAM_STR);
             $query->bindParam(':accesstokenexpiryseconds', $access_token_expiry_seconds, PDO::PARAM_INT);
             $query->bindParam(':refreshtoken', $refreshtoken, PDO::PARAM_STR);
@@ -254,7 +263,8 @@ if(array_key_exists("sessionid", $_GET)){
 
 }
 elseif(empty($_GET)){   
-
+    //Create a Session 
+    // LOG a user IN API
     if($_SERVER['REQUEST_METHOD'] !== 'POST'){
         $response = new Response();
         $response->setHttpStatusCode(405);

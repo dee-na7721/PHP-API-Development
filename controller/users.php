@@ -14,6 +14,7 @@ try{
     $response->send();
     exit;
 }
+//Create a User SIGN UP USER 
 
 if($_SERVER['REQUEST_METHOD'] !== 'POST'){
     $response = new Response();
@@ -34,7 +35,6 @@ if($_SERVER['CONTENT_TYPE'] !== 'application/json'){
 }
 
 $rawPostData = file_get_contents('php://input');
-// echo $rawPostData;
 if(!$jsonData = json_decode($rawPostData)){
     $response = new Response();
     $response->setHttpStatusCode(400);
@@ -111,7 +111,7 @@ try{
         $response->send();
         exit;
     }
-
+    //Display Created User's Credentials except pw 
     $lastUserID = $writeDB->lastInsertId();
 
     $returnData = array();
